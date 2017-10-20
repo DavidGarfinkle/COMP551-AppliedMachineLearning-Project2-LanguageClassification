@@ -40,6 +40,38 @@ class BayesianClassifier(Classifier):
 
 class NaiveBayesianClassifier(BayesianClassifier):
 
+    def character_probabilities_by_unique_occurrence(self, category):
+        """
+        Calculates the conditional probabilities of characters given a category
+        by counting the unique occurrences of a character given an utterance
+        from the training set.
+        """
+        character_count = Counter(Counter(utterance.text).keys()
+                for utterance in self.data.values()
+                if utterance.category == category)
+
+        category_frequency = len(filter(lambda utt: (utt.category == category),
+            self.data.values()))
+
+        return {char : (character_count[char] / category_frequency)
+                for char in character_count}
+
+
+    def character_probabilities_by_frequency(self, category):
+        """
+        Calculates the conditional character probabilities given a category.
+
+        Takes the frequency of a character over all characters within a category
+        of the training set.
+        """
+        character_count = Counter(utterance.text for utterance in self.data.values()
+                if utterance.category == category)
+
+        total_num_characters = sum(character_count.values())
+
+        return {char : (character_count[char] / total_num_characters)
+                for char in character_count}
+
     def __train__(self):
         self.char_counters= {}
         self.category_counter = Counter()
