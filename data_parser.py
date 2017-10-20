@@ -13,14 +13,17 @@ class DataModel(dict):
         'german',
         'polish']
 
-    def __init__(self, text_path, labels_path):
+    def __init__(self, text_path, labels_path = None):
         # Parse the csv file with Id : Text data
 	with open(text_path, 'r') as f:
             text_dict = dict((int(elt['Id']), elt['Text']) for elt in csv.DictReader(f))
 
         # Parse the csv file with Id : Category data
-	with open(labels_path, 'r') as f:
-            labels_dict = dict((int(elt['Id']), int(elt['Category'])) for elt in csv.DictReader(f))
+        if labels_path:
+            with open(labels_path, 'r') as f:
+                labels_dict = dict((int(elt['Id']), int(elt['Category'])) for elt in csv.DictReader(f))
+        else:
+            labels_dict = {key : None for key in text_dict}
 
         # Build a dictionary of namedtuples combining both dictionaries
 	# (Assume dictionaries are of equal length and identical keys)
@@ -32,17 +35,6 @@ class DataModel(dict):
         """ Writes two separate Id : Text and Id : Category csv files"""
         pass
 
-"""
-class BayesianDataModel(DataModel):
-    def __init__(self, text_path, labels_path):
-        super(BayesianDataModel, self).__init__(text_path, labels_path)
-        self.categories = [Category(id, name) for id, name in enumerate(
-            ['slovak'])]
-
-# Include categories attribute
-# self.categories = [{'name' : name} for name in ['slovak', 'french', 'spanish', 'german', 'polish']]
-
-"""
 
 class Category(object):
     def __init__(self, id, name):
