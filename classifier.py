@@ -4,38 +4,43 @@ import pdb
 from collections import Counter
 
 class Classifier(object):
+    """Interface for classifier objects"""
 
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, unprocessed_data):
+        """Process and train the classifier given some data"""
+        self.data = self.__pre_process__(unprocessed_data)
+        self.__train__()
 
-    def pre_process(self):
-        # TODO put text to lower case
-        raise NotImplemented
+    def __pre_process__(self, data):
+        """non-destructively pre-process the data"""
+        # Put all text to lower case
+        return {key : tpl._replace(text=tpl.text.lower())
+                for key, tpl in data.items()}
 
-    def train(self):
-        raise NotImplemented
+    def __pre_process_query(self, query):
+        # Put all text to lower case
+        return query._replace(text=query.text.lower())
+
+    def __train__(self):
+        """Train the model"""
+        pass
 
     def classify(self, query):
-        raise NotImplemented
-
-    def evaluate(self):
+        """Classify something!"""
         pass
+
+    def evaluate(self, testing_data):
+        """Run evaluation metrics on a test set"""
+        evaluation = Counter(self.classify(utterance) == utterance.category
+                for utterance in testing_data.values())
+        return float(evaluation[True]) / float(evaluation[True] + evaluation[False])
 
 class BayesianClassifier(Classifier):
     pass
 
-    #def __init__(self, data):
-        #data.category_counter = Counter()
-        #for category in data.categories:
-        #    category.update({'char_counter' : Counter()})
-
 class NaiveBayesianClassifier(BayesianClassifier):
 
-    def __init__(self, data):
-        super(NaiveBayesianClassifier, self).__init__(data)
-
-    def train(self):
-
+    def __train__(self):
         self.char_counters= {}
         self.category_counter = Counter()
         for utterance in self.data.values():
@@ -54,7 +59,8 @@ class NaiveBayesianClassifier(BayesianClassifier):
 
 
     def classify(self, utt):
-        utterance_observation = Counter(utt.text)
+        # pre process query (e.g., conver to lower case)
+        utterance_observation = Counter(__pre_process_query__(utt).text)
 
         maximum = 0
         best_category = None
