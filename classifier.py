@@ -177,13 +177,11 @@ class KNN(Classifier):
         super(KNN, self).__init__(data)
         self.K = K
 
-        # Get unique chars in dataset
-        #char_counter = Counter()
-        #for utt in self.data:
-        #    char_counter.update(utt.text)
-        #self.characters = sorted(char_counter)
-        # Figure out a fixed dimension # for each unique char in the dataset
-        #self.character_dimension = {self.characters[i] : i for i in range(len(self.characters))}
+    def CNN_data_reduction(self):
+        pass
+        # 1) Remove outliers
+
+
 
     def utterance_euclidean_distance(self, utt1, utt2):
         import math
@@ -229,3 +227,4 @@ class KNN(Classifier):
 
         # return the most common category (the first part of the first tpl of a list)
         return category_vote.most_common(1)[0][0]
+
