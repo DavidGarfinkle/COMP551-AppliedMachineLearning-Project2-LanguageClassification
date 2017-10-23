@@ -1,17 +1,17 @@
 import csv
 from collections import namedtuple
 
-class DataModel(dict):
+class DataModel(list):
     """Stores data in-memory as a dict of namedtuples"""
 
-    Utterance = namedtuple('Utterance', ['text', 'category'])
+    Utterance = namedtuple('Utterance', ['identifier', 'text', 'category'])
 
     Categories = [
-        'slovak',
-        'french',
-        'spanish',
-        'german',
-        'polish']
+        'Slovak',
+        'French',
+        'Spanish',
+        'German',
+        'Polish']
 
     def __init__(self, text_path, labels_path = None):
         # Parse the csv file with Id : Text data
@@ -28,16 +28,25 @@ class DataModel(dict):
         # Build a dictionary of namedtuples combining both dictionaries
 	# (Assume dictionaries are of equal length and identical keys)
 	super(DataModel, self).__init__(
-            (id, DataModel.Utterance(text=text_dict[id], category=labels_dict[id]))
-            for id in text_dict.keys())
+            (DataModel.Utterance(identifier = ident, text=text_dict[ident], category=labels_dict[ident]))
+            for ident in text_dict)
 
-    def write(self):
+    def compute_category_counters(self):
+        return {category : Counter(utterance.category for utterance in self)}
+
+    def compute_character_counters(self):
+        character_count = {}
+        for utt in self.data:
+            character_count.setdefault(utterance.category, Counter()).update(
+                    Counter(utterance.text).keys())
+
+    def write(self, output_path = 'output.csv'):
         """ Writes two separate Id : Text and Id : Category csv files"""
-        pass
+        with open(output_path, 'w') as f:
+            writer = csv.DictWriter(f, ['Id', 'Category'])
+            writer.writeheader()
+            writer.writerows({
+                'Id' : utt.identifier,
+                'Category' : utt.category}
+                for utt in self)
 
-
-class Category(object):
-    def __init__(self, id, name):
-        self.id = id
-        self.name = name
-        self.char_counter = Counter()
