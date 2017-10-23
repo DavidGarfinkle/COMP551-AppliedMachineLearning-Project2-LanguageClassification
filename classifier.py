@@ -9,19 +9,29 @@ class Classifier(object):
     def __init__(self, unprocessed_data):
         """Process and train the classifier given some data"""
         self.data = self.__pre_process__(unprocessed_data)
-        self.__train__()
+
+    def __pre_process_utterance__(self, utt):
+        # Put to lower case
+        processed_utt = utt._replace(text=utt.text.lower())
+        # Remove spaces
+        processed_utt = processed_utt._replace(
+                text=''.join(c for c in processed_utt.text if c != ' '))
+
+        return processed_utt
+
 
     def __pre_process__(self, data):
         """non-destructively pre-process the data"""
         # Put all text to lower case
-        return {key : tpl._replace(text=tpl.text.lower())
-                for key, tpl in data.items()}
+        return [self.__pre_process_utterance__(utt) for utt in data]
 
-    def __pre_process_query(self, query):
+        # TODO remove spaces?
+
+    def __pre_process_query__(self, query):
         # Put all text to lower case
         return query._replace(text=query.text.lower())
 
-    def __train__(self):
+    def train(self):
         """Train the model"""
         pass
 
@@ -29,53 +39,83 @@ class Classifier(object):
         """Classify something!"""
         pass
 
+
     def evaluate(self, testing_data):
         """Run evaluation metrics on a test set"""
-        evaluation = Counter(self.classify(utterance) == utterance.category
-                for utterance in testing_data.values())
-        return float(evaluation[True]) / float(evaluation[True] + evaluation[False])
+        accuracy = Counter(self.classify(utterance) == utterance.category
+                for utterance in testing_data)
+        return float(accuracy[True]) / sum(accuracy.values())
 
 class BayesianClassifier(Classifier):
     pass
 
 class NaiveBayesianClassifier(BayesianClassifier):
 
-    def character_probabilities_by_unique_occurrence(self, category):
+    def __pre_process__(self, data):
+        processed_data = super(NaiveBayesianClassifier, self).__pre_process__(data)
+
+        category_occurrences = Counter(utterance.category for utterance in processed_data)
+
+        # Weird, python won't let me assign an additional attribute to a dictionary subclass 
+        self.data_category_frequencies = {category :
+                (float(category_occurrences[category]) / float(sum(category_occurrences.values())))
+            for category in category_occurrences.keys()}
+
+        return processed_data
+
+    def character_probabilities_by_unique_occurrence(self):
         """
         Calculates the conditional probabilities of characters given a category
         by counting the unique occurrences of a character given an utterance
         from the training set.
+
+        >>> data = [Utterance(0, 'foo'), Utterance(1, 'bar')]
+        >>> character_probabilities_by_frequency(data)
+        >>> {0 : {'o' : 1, 'f' : 1}, 1 : {'b' : 1, 'a' : 1, 'r': 1}}
         """
-        character_count = Counter(Counter(utterance.text).keys()
-                for utterance in self.data.values()
-                if utterance.category == category)
+        character_count = {}
+        for utterance in self.data:
+            character_count.setdefault(utterance.category, Counter()).update(
+                    Counter(utterance.text).keys())
 
-        category_frequency = len(filter(lambda utt: (utt.category == category),
-            self.data.values()))
+        return {category :
+                {char : float((character_count[category][char]) /
+                    float(self.data_category_frequencies[category]))
+                    for char in character_count[category]}
+                for category in self.data_category_frequencies}
 
-        return {char : (character_count[char] / category_frequency)
-                for char in character_count}
-
-
-    def character_probabilities_by_frequency(self, category):
+    def character_probabilities_by_frequency(self):
         """
         Calculates the conditional character probabilities given a category.
 
         Takes the frequency of a character over all characters within a category
         of the training set.
+
+        >>> data = [Utterance(0, 'fool'), Utterance(1, 'bard')]
+        >>> character_probabilities_by_frequency(data)
+        >>> {0 : {'o' : 0.50, 'f' : 0.25, 'l' : 0.25},
+                1 : {'b' : 0.25, 'a' : 0.25, 'r': 0.25, 'd' : 0.25}}
         """
-        character_count = Counter(utterance.text for utterance in self.data.values()
-                if utterance.category == category)
+        # Total count of characters among all utterances in the dataset
+        character_count = {}
+        for utterance in self.data:
+            character_count.setdefault(utterance.category, Counter()).update(
+                    Counter(utterance.text))
 
-        total_num_characters = sum(character_count.values())
+        return {category :
+                {char : float((character_count[category][char]) /
+                    float(sum(character_count[category].values())))
+                    for char in character_count[category]}
+                for category in self.data_category_frequencies}
 
-        return {char : (character_count[char] / total_num_characters)
-                for char in character_count}
+    def train(self, *args):
+        self.conditional_char_probabilities = (self.character_probabilities_by_frequency() if 'frequency' in args
+                else self.character_probabilities_by_unique_occurrence())
 
-    def __train__(self):
+    def __train__old(self):
         self.char_counters= {}
         self.category_counter = Counter()
-        for utterance in self.data.values():
+        for utterance in self.data:
             # Tally category occurrences
             self.category_counter.update((utterance.category,))
             # Tally only the unique occurrence of each character in the utt
@@ -92,7 +132,26 @@ class NaiveBayesianClassifier(BayesianClassifier):
 
     def classify(self, utt):
         # pre process query (e.g., conver to lower case)
-        utterance_observation = Counter(__pre_process_query__(utt).text)
+        utterance_observation = Counter(self.__pre_process_utterance__(utt).text)
+
+        results = []
+        for category in self.data_category_frequencies:
+            conditional_probabilities = [
+                    self.conditional_char_probabilities[category].get(char, 0)
+                    for char in utterance_observation]
+
+            # TODO USE LOG LIKELIHOOD!! will have more accurate numbers
+            likelihood = reduce(lambda x, y: x * y,
+                    conditional_probabilities + [self.data_category_frequencies[category]])
+
+            results.append((likelihood, category))
+
+        probability, category = max(results)
+        return category
+
+    def classify_old(self, utt):
+        # pre process query (e.g., conver to lower case)
+        utterance_observation = Counter(self.__pre_process_utterance__(utt).text)
 
         maximum = 0
         best_category = None
@@ -102,7 +161,7 @@ class NaiveBayesianClassifier(BayesianClassifier):
 
             likelihood =  reduce(lambda x, y: x * y,
                     [self.character_probabilities[category].get(char, 0)
-                        for char in utterance_observation.keys()]
+                        for char in utterance_observation]
                     + [category_probability])
 
             if likelihood > maximum:
