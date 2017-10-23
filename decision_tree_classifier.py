@@ -46,6 +46,7 @@ class DecisionTreeClassifier(Classifier):
             setattr(self,
                     'only' + DataModel.Categories[language],
                     partial(self.test_language, language_set - not_language_set))
+        self.tests = [self.notSlovak, self.notFrench, self.notGerman, self.notSpanish, self.notPolish, self.onlyFrench, self.onlySpanish]
 
     def test_language(self, not_language, letter_set):
         return len(not_language&letter_set) > 0
@@ -293,6 +294,29 @@ class DecisionTreeClassifier(Classifier):
                     node[2] = self.makeTree(false_list_6, depth+1, max_depth)
 
             return node
+
+    def classify(self, utt):
+        possible_domains = ['slovak', 'french', 'german', 'spanish', 'polish']
+        tree_ptr = self.tree
+
+        while tree_ptr != -1 and tree_ptr != -2:
+            test = self.tests[tree_ptr[0]]
+            to_be_removed = [
+                    ('slovak'),
+                    ('french'),
+                    ('german'),
+                    ('spanish'),
+                    ('polish'),
+                    ('slovak', 'german', 'spanish', 'polish'),
+                    ('slovak', 'french', 'german', 'polish')]
+
+            if test(set(utt)):
+                for val in to_be_removed[tree_ptr[0]]:
+                    possible_domains.remove(val)
+                tree_ptr = tree_ptr[1]
+            else:
+                tree_ptr = tree_ptr[2]
+
 
 
 ######
@@ -551,6 +575,7 @@ def makeTree(data_list, depth, max_depth):
 
 	return node
 
+
 #____________________READFILES____________________
 def readFile(file):
 	data_list = []
@@ -563,6 +588,7 @@ def readFile(file):
 		data_list_entry = [language_id, sentence_string]
 		data_list.append(data_list_entry)
 	return data_list
+
 
 #______________________MAIN______________________
 def main():
@@ -579,4 +605,5 @@ def main():
         tree.makeTree(data_list, 0, 3)
 
 
-main()
+if __name__ == '__main__':
+    main()
