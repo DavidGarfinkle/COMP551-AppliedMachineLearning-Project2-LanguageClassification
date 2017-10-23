@@ -169,3 +169,63 @@ class NaiveBayesianClassifier(BayesianClassifier):
                 best_category = category
 
         return best_category
+
+
+class KNN(Classifier):
+
+    def __init__(self, data, K):
+        super(KNN, self).__init__(data)
+        self.K = K
+
+        # Get unique chars in dataset
+        #char_counter = Counter()
+        #for utt in self.data:
+        #    char_counter.update(utt.text)
+        #self.characters = sorted(char_counter)
+        # Figure out a fixed dimension # for each unique char in the dataset
+        #self.character_dimension = {self.characters[i] : i for i in range(len(self.characters))}
+
+    def utterance_euclidean_distance(self, utt1, utt2):
+        import math
+        utt1_chars = Counter(utt1.text)
+        utt2_chars = Counter(utt2.text)
+
+        return math.sqrt(
+                sum(math.pow(utt2_chars[char] - utt1_chars[char], 2)
+                    for char in set(utt1_chars.keys() + utt2_chars.keys())))
+
+    def euclidean_distance(self, v1, v2):
+        import math
+
+        return math.sqrt(sum(math.pow(v2[i] - v1[i], 2) for i in range(len(v1))))
+
+    def get_utterance_vector(self, utt):
+        v = [0 for n in self.characters]
+        character_count = Counter(utt.text)
+
+        for c in character_count:
+            v[self.character_dimension[c]] = character_count[c]
+        return (utt, v)
+
+    def train(self):
+        pass
+        #self.utterance_vectors = [self.get_utterance_vector(utt) for utt in self.data]
+
+    def classify(self, utt):
+        # Get distances to all training points
+        distances = sorted([(
+            self.utterance_euclidean_distance(utt, neighbor_utt),
+            neighbor_utt)
+                for neighbor_utt in self.data])
+
+        # count categories of K nearest neighbors
+        category_vote = Counter(neighbor_utt.category
+                for distance, neighbor_utt in distances[:self.K])
+        winner = category_vote.most_common(1)[0]
+
+        # lazy learn
+        classified_utt = utt._replace(category = winner)
+        self.data.append(utt)
+
+        # return the most common category (the first part of the first tpl of a list)
+        return category_vote.most_common(1)[0][0]
